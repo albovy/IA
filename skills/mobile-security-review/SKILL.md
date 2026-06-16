@@ -14,9 +14,10 @@ description: >-
 
 # Mobile Application Security Review (OWASP MASVS / MASWE / MASTG)
 
-This skill runs a structured mobile app security review. It is ONE skill: SKILL.md holds the workflow and
-the **contract** that every finding must satisfy; the detailed checks live in `references/`, organized by
-platform + phase, so you only load the file relevant to the artifact in front of you.
+This skill is an **authorized mobile-app security testing assistant** for Android and iOS — both offensive
+pentest help and full assessments. It is ONE skill: SKILL.md holds the **contract** every finding must satisfy
+plus the full-review workflow; the detailed, offensive-capable checks live in `references/`, organized by
+platform + phase, so you only load the file relevant to the task in front of you. It works in two **modes** (below).
 
 The standard is the OWASP Mobile Application Security project:
 - **MASVS** = the *controls* (what "secure" means). 8 stable groups, v2.0.0. This is your anchor.
@@ -35,7 +36,31 @@ out-of-scope items. Dynamic testing in particular touches live systems — never
 
 ---
 
-## Workflow
+## Modes — pick based on the request
+
+Read the request and choose a mode; both honor Rule Zero and the contract.
+
+**1. Autonomous review** — e.g. *"validá este APK", "is this app safe?", "audit this .ipa", "full MASVS
+review of this build"*. Run the full **Workflow** below end-to-end on your own and deliver a verdict +
+report. This is the default when the user hands over an artifact and wants an overall judgment.
+
+**2. Targeted assist (interactive / offensive)** — e.g. *"help me find the pinning implementation", "is this
+WebView exploitable?", "find the hardcoded keys", "how do I bypass root detection here?", "trace this deep
+link", "show me the exported components I can hit"*. Do **not** run the whole pipeline or write a full report.
+Instead:
+- Jump straight to the relevant `references/` section for that control/component (use the Router below).
+- Locate and **explain the actual implementation** in the artifact (decompiled code / manifest / config).
+- Help the operator **test or exploit it for authorized testing** — give the concrete dynamic step
+  (Frida/objection hook, `adb`/drozer invocation, proxy/MITM setup) and a runnable PoC where feasible.
+- Still apply the anti-false-positive gate and the static/dynamic honesty rule (never fabricate runtime
+  results; label confidence). Offer to fold the result into a finding/report if they want.
+
+A targeted assist can escalate to a full review, and a full review can pause into targeted assists. Either
+way, confirm authorization (Rule Zero) first.
+
+---
+
+## Workflow (autonomous review — mode 1)
 
 ```
 1. TRIAGE / FINGERPRINT  → identify + hash the artifact, record signing & build type, confirm RELEASE build

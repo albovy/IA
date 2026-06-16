@@ -42,6 +42,10 @@ cp -r skills/mobile-security-review <your-project>/.claude/skills/
 Once installed it triggers on its own when you ask to review/audit/pentest a mobile app or hand over an
 app artifact — even without naming OWASP/MASVS. You can also invoke it explicitly: `/ia-skills:mobile-security-review`.
 
+It's an **authorized pentest assistant** and works in **two modes**:
+- **Autonomous review** — e.g. *"validá este APK"* / *"is this app safe?"* → runs the full workflow on its own and delivers a verdict + report.
+- **Targeted offensive assist** — e.g. *"help me find the pinning implementation"* / *"is this WebView exploitable?"* → jumps straight to that control, explains the real implementation, and helps you test or bypass it (authorized testing), without forcing a full report.
+
 ### mobile-security-review — layout
 
 ```
