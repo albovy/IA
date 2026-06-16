@@ -6,14 +6,14 @@
   },
   "metadata": {
     "description": "albovy's Claude Code skills — security tooling and more",
-    "version": "1.2.0"
+    "version": "1.2.1"
   },
   "plugins": [
     {
       "name": "ia-skills",
       "source": "./",
       "description": "Mobile app security testing assistant (OWASP MASVS/MASWE/MASTG, Android + iOS, static & dynamic): autonomous reviews and targeted offensive assist. More skills to come.",
-      "version": "1.2.0",
+      "version": "1.2.1",
       "author": {
         "name": "albovy"
       },
