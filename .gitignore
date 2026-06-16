@@ -14,3 +14,21 @@ venv/
 # Local skill-build workspaces / packaged artifacts
 *-workspace/
 *.skill
+
+# Secrets / local env (never publish credentials)
+.env
+.env.*
+*.pem
+*.key
+
+# Scratch / build leftovers
+*.log
+*.tmp
+*.bak
+COMMIT_MSG.txt
+
+# Mobile sample binaries — never commit vulnerable/sample apps to the repo
+*.apk
+*.ipa
+*.aab
+samples/

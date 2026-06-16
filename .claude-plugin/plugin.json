@@ -1,7 +1,7 @@
 {
   "name": "ia-skills",
   "description": "albovy's skills. Currently: mobile-security-review — an OWASP MASVS/MASWE/MASTG mobile app security testing assistant (Android + iOS, static & dynamic): runs autonomous reviews or gives targeted offensive assist.",
-  "version": "1.2.2",
+  "version": "1.2.3",
   "author": {
     "name": "albovy"
   },
