@@ -51,17 +51,19 @@ It's an **authorized pentest assistant** and works in **two modes**:
 ```
 skills/mobile-security-review/
 ├── SKILL.md                          # router + contract (finding schema, MASVS→MASWE→MASTG traceability,
-│                                     #   severity model, anti-false-positive gate, static/dynamic boundary)
-│                                     #   + the 24 MASVS v2.0.0 controls (authoritative anchors)
+│                                     #   severity, anti-false-positive gate, static/dynamic boundary, two modes:
+│                                     #   autonomous review + targeted offensive assist) + 24 MASVS v2.0.0 controls
 ├── references/
-│   ├── masvs-android-static.md       # Android static checks by MASVS group
-│   ├── masvs-ios-static.md           # iOS static checks (incl. FairPlay decryption caveat)
-│   ├── android-dynamic.md            # Android runtime confirmation of static flags
+│   ├── android-overview.md           # Android entry: tools, manifest pre-pass, framework-fingerprint-first, router
+│   ├── ios-overview.md               # iOS entry: tools (FairPlay caveat), Info.plist/Mach-O pre-pass, router
+│   ├── android/{storage,crypto,auth,network,platform,code,resilience,privacy}.md   # per-MASVS-group (Android)
+│   ├── ios/{storage,crypto,auth,network,platform,code,resilience,privacy}.md       # per-MASVS-group (iOS)
+│   ├── cross-platform-static.md      # detect + statically analyze RN / Flutter / Cordova / Unity / Xamarin / KMP
+│   ├── static-tooling-and-methodology.md  # semgrep/MobSF/APKiD, SBOM/SCA, reachability/xref, secrets, Firebase
+│   ├── android-dynamic.md            # Android runtime confirmation of static flags (human-in-the-loop)
 │   ├── ios-dynamic.md                # iOS runtime confirmation
 │   └── setup-dynamic.md              # shared dynamic environment setup
-├── assets/
-│   ├── finding-template.md           # per-finding template
-│   └── report-template.md            # full report skeleton
+├── assets/  finding-template.md · report-template.md
 └── evals/evals.json                  # qualitative test cases used while building the skill
 ```
 

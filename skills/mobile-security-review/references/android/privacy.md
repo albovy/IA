@@ -1,0 +1,48 @@
+# Android — MASVS-PRIVACY (static)
+
+Static-only checks for the MASVS-PRIVACY group on an Android artifact (`.apk` / `.aab` / extracted APK): minimize and protect personal data, prevent user identification, be transparent, give the user control — assessed from the manifest, resources, and decompiled code, no device required. Fold privacy in whenever the app handles personal data (the **P / MAS-P** profile); most checks here also apply at L1/L2.
+
+Anchor each finding to the exact control in SKILL.md (read it); verify MASWE/MASTG IDs against the live guide.
+
+Everything here is a **candidate generator** — promote to a finding only after the anti-false-positive gate in `SKILL.md` (real evidence? reachable here? honest confidence?). Pick the PRIVACY control number by **statement match**, not by group alone. Note the static/dynamic boundary: declared-vs-actual *collection* and exfiltration are only **confirmed** at runtime (MASTG-TEST-0319 hooks, -0206 traffic capture) — statically these stay **"Needs dynamic verification."**
+
+## Group controls (MASVS v2.0.0, verbatim)
+- **MASVS-PRIVACY-1** — The app minimizes access to sensitive data and resources. *(over-permissioning; third-party SDK data access)*
+- **MASVS-PRIVACY-2** — The app prevents identification of the user. *(persistent identifiers, fingerprinting)*
+- **MASVS-PRIVACY-3** — The app is transparent about data collection and usage. *(SDKs/APIs that collect data the app doesn't declare)*
+- **MASVS-PRIVACY-4** — The app offers user control over their data.
+
+The MASWE-PRIVACY weakness set (verified live): MASWE-0108 Sensitive Data in Network Traffic · MASWE-0109 Lack of Anonymization/Pseudonymisation · MASWE-0110 Use of Unique Identifiers for User Tracking · MASWE-0111 Inadequate Privacy Policy · MASWE-0112 Inadequate Data Collection Declarations · MASWE-0113 Lack of Proper Data Management Controls · MASWE-0114 Inadequate Data Visibility Controls · MASWE-0115 Inadequate or Ambiguous User Consent Mechanisms · MASWE-0117 Inadequate Permission Management.
+
+> ID status: MASWE is **Beta**; MASTG is mid-refactor (atomic 0200+/0300+ tests coexist with legacy narrative tests). PRIVACY atomic tests live under `tests-beta/android/MASVS-PRIVACY/` in `OWASP/mastg` and resolve on the live site under `/MASTG/tests/`. IDs below were confirmed against the live catalog at authoring time — re-verify, never invent or borrow an ID.
+
+## Checks
+
+**Permissions vs. actual use (over-permissioning / dangerous permissions).** Enumerate `<uses-permission>` from the decoded manifest, flag every **dangerous** permission (location, contacts, mic, camera, SMS, call log, body sensors, nearby-devices, `READ/WRITE_EXTERNAL_STORAGE`, `READ_MEDIA_*`), then trace whether a corresponding API is actually called in the decompiled code. A declared dangerous permission with **no** matching API use = over-permissioning; a dangerous permission with **no justifying feature** = privacy finding (context matters — `CAMERA` for a QR scanner is justified; for an app with no camera feature it is not, especially where a privacy-preserving alternative like `ACTION_IMAGE_CAPTURE` exists). → **MASVS-PRIVACY-1** · MASWE-0117 · **MASTG-TEST-0254** (Dangerous App Permissions, static/code), via MASTG-TECH-0117 (manifest) + MASTG-TECH-0126 (obtaining app permissions).
+
+**Permission requests not minimized / no privacy-preserving alternative.** Beyond "is it dangerous": flag permissions that have a documented privacy-preserving substitute the app ignores (e.g. full `CAMERA`/storage grants where a system-picker Intent, scoped storage, or `ACTION_*` delegation would avoid the grant). → **MASVS-PRIVACY-1** · MASWE-0117 · **MASTG-TEST-0255** (Permission Requests Not Minimized — status: *placeholder*; cite control + descriptive name).
+
+**Missing permission rationale.** App requests sensitive runtime permissions without ever calling `shouldShowRequestPermissionRationale(...)` / showing an in-context explanation before the system dialog. Statically detectable as the absence of that call on the request path. → **MASVS-PRIVACY-1** (transparency-adjacent; statement match favors minimize+rationale) · MASWE-0117 · **MASTG-TEST-0256** (Missing Permission Rationale — *placeholder*; cite control + descriptive name).
+
+**Unused permissions not auto-reset.** App targets a version supporting permission auto-reset but opts out (`<application android:autoRevokePermissions="discouraged"/>` / `setAutoRevokeWhitelisted`) or never relinquishes long-unused grants. → **MASVS-PRIVACY-1** · MASWE-0117 · **MASTG-TEST-0257** (Not Resetting Unused Permissions — *placeholder*; cite control + descriptive name).
+
+**Third-party / tracking-analytics SDKs (declared-vs-actual data collection).** Identify bundled SDKs from smali package paths / `META-INF` / `BuildConfig` (ads, analytics, attribution, crash, A/B), then locate calls to **specific SDK data-collection APIs** — the offensive marker, not just the package's presence. Concrete sinks: `FirebaseAnalytics.setUserId` / `setUserProperty` / `logEvent`, Facebook/AppsFlyer/Adjust/Branch/Segment/Amplitude/Mixpanel logging and identify calls. Each confirmed call is a candidate that the app's data-collection declaration must cover. → **MASVS-PRIVACY-3** · MASWE-0112 (Inadequate Data Collection Declarations) · **MASTG-TEST-0318** (References to SDK APIs Known to Handle Sensitive User Data, static/code), via MASTG-TECH-0013 (reverse engineer) + MASTG-TECH-0014 (static analysis). *Static finds the call site only; actual collection/sharing is confirmed at runtime via* **MASTG-TEST-0319** *(dynamic/hooks, same MASWE) — keep static-only items "Needs dynamic verification."*
+
+**Persistent identifiers / device fingerprinting.** Grep for collection of cross-session identifiers: `Settings.Secure.ANDROID_ID`, `AdvertisingIdClient.getAdvertisingIdInfo` (Advertising ID), `getImei`/`getDeviceId`/`getSubscriberId`/`getSimSerialNumber` (require privileged perms now), `WifiInfo.getMacAddress` / `BluetoothAdapter` address, `Build.SERIAL`/`getSerial`, `MediaDrm` device-unique ID (Widevine), `GoogleApiAvailability`/GAID combined with hardware properties for fingerprinting. Flag identifiers used to track the user across sessions/installs, and Advertising-ID use not gated behind consent / not honoring opt-out. → **MASVS-PRIVACY-2** · MASWE-0110 (Use of Unique Identifiers for User Tracking) · no atomic Android **static** test confirmed → cite control + descriptive name + **"(ID to confirm)"** (do not borrow the iOS tracking-domains test MASTG-TEST-0281 — it is iOS-only).
+
+**Sensitive-data exfiltration to third-party / unexpected endpoints.** Correlate the SDK/identifier call sites above with the hardcoded URLs/hosts enumerated in MASVS-NETWORK: personal data or identifiers sent to ad/analytics/attribution domains or to undeclared endpoints. Statically this is a candidate (you see the host and the data near it); the actual PII-in-transit is confirmed by capturing traffic at runtime. → **MASVS-PRIVACY-3** (undeclared collection) / cross-ref **MASVS-PRIVACY-1** (third-party access) · MASWE-0108 (Sensitive Data in Network Traffic) · static discovery via MASTG-TECH-0117 + MASTG-TECH-0014; runtime confirmation **MASTG-TEST-0206** (Undeclared PII in Network Traffic Capture, dynamic/network) — mark static-only items "Needs dynamic verification."
+
+> One-line notes (do not expand — low static yield): **anonymization/pseudonymization of PII before storage** (MASWE-0109) is a design/policy judgment, rarely statically decidable — note at most that PII is stored in identifiable form, P-profile only. **Privacy-policy / consent / data-management/visibility controls** (MASWE-0111/0113/0114/0115) are largely transparency-and-UX judgments (PRIVACY-3/-4) confirmed by reviewing the policy and consent flow, not by static code patterns — flag only if a clear artifact exists (e.g. data collected before any consent gate in code).
+
+## Classic false positives
+Consult before promoting a PRIVACY candidate. Each below is **usually NOT a finding** absent extra evidence:
+
+| Candidate | Why it's usually a false positive | When it *is* real |
+|---|---|---|
+| Declared dangerous permission | Backs an actual, justified feature (e.g. `CAMERA` for a QR scanner; `ACCESS_FINE_LOCATION` for maps) | declared with **no** matching API use, or no justifying feature / a privacy-preserving alternative exists (MASTG-TEST-0254/-0255) |
+| Analytics/ads SDK **present** in the package | Bundled but its data-collection APIs are never called, or it collects only non-personal data the app declares | a specific data-collection API (`setUserId`/`logEvent`/identify) is invoked with personal data the app's declaration doesn't cover (MASTG-TEST-0318) |
+| `ANDROID_ID` / Advertising ID read | Used for a non-tracking purpose (per-install cache key) and reset/opt-out honored | used as a persistent cross-session/cross-install tracking identifier, or GAID used ignoring opt-out (MASWE-0110) |
+| "Identifier collected" flagged statically | The call site exists but the value isn't transmitted/persisted for tracking | the identifier is sent to an ad/analytics/undeclared endpoint (correlate with NETWORK; confirm in transit via MASTG-TEST-0206) |
+| Sensitive data "sent to third party" (static) | Static only shows a host + nearby data; no confirmed PII in transit | a dynamic capture shows PII to an undeclared/third-party domain — until then **Needs dynamic verification** |
+
+When you dismiss a candidate, record it (and the reason) in the report's "candidates not promoted" appendix — that transparency is part of an honest deliverable.

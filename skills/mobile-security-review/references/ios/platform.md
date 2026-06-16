@@ -1,0 +1,65 @@
+# iOS — MASVS-PLATFORM (static)
+
+Scope: static review of an iOS artifact (`.ipa` / `.app` bundle / Mach-O) for safe interaction with the OS and other apps — IPC, custom URL schemes / Universal Links, WKWebView, app extensions, pasteboard, and UI exposure (screenshots / keyboard / notifications).
+
+Anchor each finding to the exact control in SKILL.md (read it); verify MASWE/MASTG IDs against the live guide.
+
+> Read the FairPlay caveat and the Pre-pass (Info.plist / entitlements / Mach-O) in the iOS static methodology before trusting any static read: against a FairPlay-encrypted App Store binary (`cryptid=1`) `otool`/`nm`/`class-dump`/Ghidra see **ciphertext** in `__TEXT`, so every symbol/string/bridge conclusion below is invalid until the binary is decrypted (`cryptid=0`). The PLATFORM surface that lives in plaintext metadata regardless — `Info.plist` (`CFBundleURLTypes`/`CFBundleURLSchemes`, `LSApplicationQueriesSchemes`, `NSUserActivityTypes`), entitlements (`com.apple.developer.associated-domains`, `keychain-access-groups`, app groups), and the embedded `apple-app-site-association` — can still be read on an encrypted binary; code-level handlers (URL/JS-bridge/extension logic) cannot.
+
+## MASVS-PLATFORM controls (anchors — verbatim, MASVS v2.0.0)
+- **MASVS-PLATFORM-1** — The app uses IPC mechanisms securely. *(custom URL schemes, Universal Links / deep links, app/share extensions, `NSUserActivity`/Handoff/CoreSpotlight, `LSApplicationQueriesSchemes`/`canOpenURL`)*
+- **MASVS-PLATFORM-2** — The app uses WebViews securely. *(JS bridges, file/origin access, untrusted/attacker-controlled content, web-content debugging)*
+- **MASVS-PLATFORM-3** — The app uses the user interface securely. *(auto-generated screenshots, general pasteboard, keyboard cache / secure text entry, notifications)*
+
+The MASTG is mid-refactor: legacy umbrella tests (`MASTG-TEST-0056`/`-0070`/`-0072`/`-0073`/`-0075`/`-0078`) are being split into atomic, MASWE-mapped tests (0200s/0300s). Both generations are live; prefer the atomic test and note the legacy umbrella. Atomic tests live under `/tests-beta/` in the OWASP/mastg repo but resolve under `https://mas.owasp.org/MASTG/tests/ios/MASVS-PLATFORM/<ID>/` on the site.
+
+---
+
+## Checks
+
+### PLATFORM-1 — IPC, deep links, extensions
+
+- **Custom URL scheme — input validation.** Enumerate registered schemes in `Info.plist` (`CFBundleURLTypes` → `CFBundleURLSchemes`), then find the handler (`application(_:open:options:)`, scene `scene(_:openURLContexts:)`, SwiftUI `onOpenURL`) and check whether it acts on attacker-supplied URL params (path traversal, numeric/range bypass, script injection into a WebView) **without input validation/sanitization** (type conversion, bounds, allow-list, special-char filtering). Any installed app can invoke a scheme. → **MASVS-PLATFORM-1**, MASWE-0058 (Insecure Deep Links), `MASTG-TEST-0370` (atomic; legacy `MASTG-TEST-0075`), knowledge `MASTG-KNOW-0079`.
+- **Custom URL scheme — source validation (with caveat).** For handlers doing sensitive/irreversible work, check whether the caller's bundle id is verified via `sourceApplication` against an allow-list. **Caveat:** Apple only populates `sourceApplication` for apps on the **same Developer Team** — external/system callers yield `nil`, so source validation is frequently absent **by platform design**. Do not flag missing source validation alone; temper it with "rely on input validation + Universal Links," and only promote when a sensitive handler trusts the caller with no validation. → **MASVS-PLATFORM-1**, MASWE-0058, `MASTG-TEST-0371` (atomic; legacy `MASTG-TEST-0075`), `MASTG-KNOW-0079`.
+- **Scheme collision / hijacking.** Custom schemes are first-come and **not unique** — another installed app can register the same scheme and intercept/spoof. Treat as its own enumerated step; the mitigation is Universal Links + handler input/source validation. → **MASVS-PLATFORM-1**, MASWE-0058, `MASTG-TEST-0371`, `MASTG-KNOW-0079`.
+- **Universal Links (safer alternative + handler validation).** Confirm `apple-app-site-association` is hosted/scoped correctly and the `com.apple.developer.associated-domains` entitlement lists the right domains; then check the handler (`application(_:continue:restorationHandler:)` / `NSUserActivity.webpageURL`) validates path/query before acting (injection, open-redirect, IDOR). Prefer UL over hijackable custom schemes for sensitive flows. → **MASVS-PLATFORM-1**, MASWE-0058, `MASTG-TEST-0070` (Universal Links), knowledge `MASTG-KNOW-0080`.
+- **App / share / action extensions.** Review `NSExtension` config for a permissive `NSExtensionActivationRule` (`TRUEPREDICATE` accepts any input type), an app-group container (`group.*`) holding unprotected secrets, a shared `keychain-access-groups`, and data written back to the host app. → **MASVS-PLATFORM-1**, MASWE-0061 (Insecure Use of App Extensions), `MASTG-TEST-0072` (Testing App Extensions; atomic split pending — descriptive name + "ID to confirm" for the split).
+- **`NSUserActivity` / Handoff / CoreSpotlight.** Sensitive `userInfo`/`webpageURL` exposed via `isEligibleForHandoff`/`isEligibleForSearch`/`isEligibleForPublicIndexing`, or sensitive items pushed to CoreSpotlight indexing (other-app / cross-device reachable). → **MASVS-PLATFORM-1**, MASWE-0059 (Use Of Unauthenticated Platform IPC), knowledge `MASTG-KNOW-0123`; rel. `MASTG-TEST-0071`/`-0072` (atomic split — descriptive name + "ID to confirm").
+- **`LSApplicationQueriesSchemes` / `canOpenURL`.** Enumerate probed schemes in `Info.plist` (installed-app fingerprinting → also a PRIVACY-2 signal) and outbound `open(_:)`/`UIApplication.open` URLs that leak tokens/PII to another app. → **MASVS-PLATFORM-1**, MASWE-0059, `MASTG-KNOW-0079`; test descriptive ("Querying/opening other apps' URL schemes") + "ID to confirm".
+- **Sensitive data via IPC / sharing.** Data exposed through `UIActivity` share sheets or generic IPC surfaces. → **MASVS-PLATFORM-1**, MASWE-0060 (Insecure Use of UIActivity) for share, MASWE-0059 for IPC; `MASTG-TEST-0071` (UIActivity), `MASTG-TEST-0056` (legacy IPC umbrella).
+
+### PLATFORM-2 — WebViews
+
+- **JS bridge inventory.** Enumerate every `WKScriptMessageHandler` registered via `userContentController.add(_:name:)` (and legacy `JSContext`/`JSExport` mappings); confirm none performs privileged work (file/keychain/native action) with untrusted JS, and that handlers validate input. Registering a bridge is not inherently insecure — flag a sensitive handler reachable from attacker JS. → **MASVS-PLATFORM-2**, MASWE-0068 (JavaScript Bridges in WebViews), `MASTG-TEST-0376` (References to Native Bridge APIs; atomic) / legacy `MASTG-TEST-0078`.
+- **Bridge reply via `evaluateJavaScript`.** `evaluateJavaScript(_:completionHandler:)` used inside `userContentController(_:didReceive:)` to return data writes the reply into the page context where injected JS can intercept it; the secure pattern is `WKScriptMessageHandlerWithReply`. → **MASVS-PLATFORM-2**, MASWE-0069 (WebViews Allows Access to Local Resources), `MASTG-TEST-0377` (atomic).
+- **Overly broad file read.** `loadFileURL(_:allowingReadAccessTo:)` granting a broad `readAccessURL` (whole Documents folder / app-container root) combined with attacker-influenced paths — the common real WebView finding. → **MASVS-PLATFORM-2**, MASWE-0069, `MASTG-TEST-0333` (atomic).
+- **File-origin policy relaxed.** `allowFileAccessFromFileURLs` / `allowUniversalAccessFromFileURLs` set `true` (these are private `WKPreferences` set via KVC `setValue:forKey:`) while the WebView loads local `file://` content — enables local-file inclusion / origin escape. → **MASVS-PLATFORM-2**, MASWE-0069, `MASTG-TEST-0335` (atomic).
+- **Attacker-controlled URI loaded.** A URL from a deep link / custom scheme / user input passed to a WKWebView load API without validation → redirection, XSS, or local-file disclosure. → **MASVS-PLATFORM-2**, MASWE-0071 (WebViews Loading Content from Untrusted Sources), `MASTG-TEST-0332` (atomic).
+- **UXSS / privileged-origin injection.** Remote/mixed/attacker-influenced content, or local HTML that incorporates attacker data, executing JS in a privileged origin that reaches bridges/files. → **MASVS-PLATFORM-2**, MASWE-0072 (Universal XSS); rel. `MASTG-TEST-0332`/`-0376`.
+- **Deprecated `UIWebView`.** Any `UIWebView` reference (cannot disable JS, no process isolation, no CSP). → **MASVS-PLATFORM-2**, MASWE-0072, `MASTG-TEST-0331` (Use of Deprecated WebView APIs; atomic).
+- **Web-content debugging left on.** `WKWebView.isInspectable = true` (iOS 16.4+) shipped in a release build (not gated to DEBUG) exposes the WebView to remote inspection. → **MASVS-PLATFORM-2**, MASWE-0074 (Web Content Debugging Enabled); no atomic MASTG test confirmed — cite control + descriptive name "WKWebView isInspectable enabled in release" + "ID to confirm".
+
+### PLATFORM-3 — UI exposure
+
+- **Auto-generated screenshots.** Sensitive data visible in the App-Switcher snapshot because no blank/secure overlay is installed on `sceneWillResignActive` / `applicationDidEnterBackground`. Static can flag the absence of a backgrounding handler; **runtime confirms it** (snapshot in SplashBoard). → **MASVS-PLATFORM-3**, MASWE-0055 (Sensitive Data Leaked via Screenshots or Screen Recordings), `MASTG-TEST-0059` (static, legacy umbrella) / `MASTG-TEST-0290` (runtime confirmation). Mark static-only as **Needs dynamic verification**.
+- **Keyboard cache / secure text entry.** Text fields accepting passwords/PINs/OTPs not marked secure (`UITextField.isSecureTextEntry`, SwiftUI `SecureField`); secure entry also disables keyboard caching/autocorrect learning for that field. Usernames don't need masking. Custom UI / game-engine text input can cause false negatives. → **MASVS-PLATFORM-3**, MASWE-0053 (Sensitive Data Leaked via the User Interface), `MASTG-TEST-0346` (static, atomic) / `MASTG-TEST-0347` (runtime).
+- **General pasteboard — three leakage modes.** Sensitive data written to the system-wide `UIPasteboard.general` (readable by other apps, persists) without protective options. Check each via the `setItems(_:options:)` call: (1) **not cleared** on background/terminate — no `setItems([], ...)` / `string = nil` in `applicationDidEnterBackground`/`applicationWillTerminate` (`MASTG-TEST-0278`); (2) **no `expirationDate`** option, so contents persist indefinitely (`MASTG-TEST-0279`); (3) **not `localOnly`**, so contents sync cross-device via Universal Clipboard (`MASTG-TEST-0280`). → **MASVS-PLATFORM-3**, MASWE-0053; atomic `MASTG-TEST-0278`/`-0279`/`-0280` (runtime counterpart `MASTG-TEST-0277`), legacy umbrella `MASTG-TEST-0073`/`-0276`. *(This is also STORAGE-2 leakage; report once, here, to avoid duplication.)*
+- **Local notifications.** OTP / message body / balance placed in `UNNotificationContent` with no lock-screen preview suppression. → **MASVS-PLATFORM-3**, MASWE-0054 (Sensitive Data Leaked via Notifications); no atomic iOS test confirmed — descriptive name "Sensitive data in local notification content" + "ID to confirm". *(low; STORAGE-2 cross-ref.)*
+
+---
+
+## Classic false positives
+Consult before promoting a candidate. Each below is **usually NOT a finding** absent extra evidence:
+
+| Candidate | Why it's usually a false positive | When it *is* real |
+|---|---|---|
+| Custom URL scheme "hijackable" | Handler validates input/source and does nothing sensitive | Handler acts on attacker URL params without validation, or does sensitive/irreversible work |
+| Missing `sourceApplication` source check | `sourceApplication` is `nil` for callers outside the same Developer Team — often absent by platform design | A sensitive handler trusts the caller and there's no input validation either; rely on input validation + Universal Links |
+| WKWebView bridge present (`WKScriptMessageHandler`) | Registering a bridge isn't insecure; handler validates input and does nothing privileged | Handler does privileged work (file/keychain/native action) reachable from untrusted/attacker-influenced JS |
+| `allowFileAccessFromFileURLs` / file-read API present | WebView loads only trusted bundled content with a tightly scoped `readAccessURL` | Broad `readAccessURL` (container root) and/or attacker-influenced path/origin, on a WebView with local content |
+| `LSApplicationQueriesSchemes` entries | Legitimate inter-app launch (e.g. "open in Maps") | Used to fingerprint installed apps for tracking (PRIVACY-2), or outbound `open()` leaks tokens/PII |
+| `isInspectable = true` | Guarded to DEBUG builds via `#if DEBUG` / `#available` | Present and reachable in the shipped **release** artifact |
+| Pasteboard write | App-scoped/named pasteboard, or non-sensitive data | Sensitive data on `UIPasteboard.general` with no `localOnly`/`expirationDate`/clear-on-background |
+| Strings/symbols "leaking" bridge or scheme names | Binary is FairPlay-encrypted (`cryptid=1`) → tool output is ciphertext, your read is invalid | Binary is decrypted (`cryptid=0`) and the handler is genuinely present |
+
+When you dismiss a candidate, record it (and the reason) in the report's "candidates not promoted" appendix.

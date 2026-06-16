@@ -65,7 +65,7 @@ way, confirm authorization (Rule Zero) first.
 ```
 1. TRIAGE / FINGERPRINT  → identify + hash the artifact, record signing & build type, confirm RELEASE build
 2. SET PROFILE           → L1 (essential) / L2 (advanced) / R (resilience) — scopes depth & what counts
-3. STATIC ANALYSIS       → fully automated; read the platform's masvs-*-static.md and work group by group
+3. STATIC ANALYSIS       → fingerprint framework first → platform overview → per-MASVS-group files
 4. DYNAMIC ANALYSIS      → ONLY if a prepared device is available and in scope; confirms static flags (HITL)
 5. CONSOLIDATE / DEDUPE  → merge static+dynamic, dedupe, apply the anti-false-positive gate, set confidence
 6. REPORT                → assemble assets/report-template.md
@@ -94,9 +94,12 @@ If the user doesn't specify, infer from the app's purpose, **state the profile y
 proceed. RESILIENCE findings are assessed **only under R**.
 
 ### 3. Static analysis
-Fully automated — no device needed. Decompile/unpack, then walk the checks **group by group** from the
-platform reference. A static signal (grep hit, MobSF flag, manifest attribute) is a **candidate**, not a
-finding, until it clears the gate below.
+Fully automated — no device needed. **First fingerprint the framework** (native vs React Native / Flutter /
+Cordova / Unity / Xamarin — see `references/cross-platform-static.md`). Then open the platform overview
+(`references/android-overview.md` or `references/ios-overview.md`) for tools + the manifest/Info.plist pre-pass,
+and walk the per-MASVS-group files (`references/<platform>/<group>.md`) — all applicable groups for a full
+review, or just the relevant one for a targeted assist. A static signal (grep / MobSF / APKiD hit, manifest
+attribute) is a **candidate**, not a finding, until it clears the gate below.
 
 ### 4. Dynamic analysis — only with a real, prepared device, in scope
 Dynamic testing is **human-in-the-loop**: it needs a prepared device/emulator and an operator who exercises
@@ -116,13 +119,16 @@ Assemble `assets/report-template.md`. Output is Markdown.
 
 ## Router — which reference(s) to read
 
-Read **only** what the artifact needs. Do not preload all references.
+Read **only** what the task needs. Start from the platform **overview** (tools, pre-pass, and a router to the
+per-group files); for a targeted assist, jump straight to the relevant group file.
 
 | Artifact / situation | Read |
 |---|---|
-| `.apk`, `.aab`, extracted APK, smali/jadx output → **Android static** | `references/masvs-android-static.md` |
+| `.apk`, `.aab`, extracted APK, smali/jadx output → **Android** | `references/android-overview.md` → `references/android/<group>.md` |
+| `.ipa`, Mach-O, iOS app folder → **iOS** | `references/ios-overview.md` → `references/ios/<group>.md` |
+| Cross-platform app (React Native, Flutter, Cordova, Unity, Xamarin, KMP) | `references/cross-platform-static.md` — fingerprint FIRST |
+| Automated tooling / SBOM-SCA / reachability / secrets / Firebase | `references/static-tooling-and-methodology.md` |
 | Android + prepared device in scope → **confirm dynamically** | `references/android-dynamic.md` |
-| `.ipa`, Mach-O, iOS app folder → **iOS static** | `references/masvs-ios-static.md` |
 | iOS + prepared jailbroken device in scope → **confirm dynamically** | `references/ios-dynamic.md` |
 | Setting up any dynamic test environment (shared) | `references/setup-dynamic.md` |
 
@@ -259,10 +265,11 @@ Canonical sources (verify MASWE/MASTG IDs here, don't trust memory):
 ---
 
 ## Files in this skill
-- `references/masvs-android-static.md` — Android static checks, by MASVS group (+ classic false positives).
-- `references/android-dynamic.md` — Android device preconditions; confirm static flags at runtime.
-- `references/masvs-ios-static.md` — iOS static checks (Mach-O, Info.plist, ATS, Keychain, FairPlay caveat).
-- `references/ios-dynamic.md` — iOS dynamic confirmation (jailbroken device, Frida over SSH, proxy + CA).
+- `references/android-overview.md` / `references/ios-overview.md` — **start here per platform**: tools, pre-pass, router to group files.
+- `references/android/<group>.md` and `references/ios/<group>.md` — per-MASVS-group static checks (storage, crypto, auth, network, platform, code, resilience, privacy).
+- `references/cross-platform-static.md` — detect + statically analyze RN / Flutter / Cordova / Unity / Xamarin / KMP.
+- `references/static-tooling-and-methodology.md` — semgrep / MobSF / APKiD, SBOM/SCA, reachability/xref, secrets, Firebase/cloud config.
+- `references/android-dynamic.md` / `references/ios-dynamic.md` — runtime confirmation of static flags (HITL).
 - `references/setup-dynamic.md` — shared dynamic environment setup.
 - `assets/finding-template.md` — per-finding template (schema + gate reminder).
 - `assets/report-template.md` — full report skeleton.

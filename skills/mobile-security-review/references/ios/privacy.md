@@ -1,0 +1,47 @@
+# iOS — MASVS-PRIVACY (static)
+
+Static checks for personal-data handling in an iOS artifact (`.ipa` / `.app` bundle / Mach-O): permission/purpose-string hygiene, entitlement over-exposure, tracking identifiers, declared-vs-actual data collection, and tracking-domain disclosure. Fold this group in whenever the app handles personal data (Profile **P / MAS-P**); it augments L1/L2, never replaces them.
+
+Anchor each finding to the exact control in SKILL.md (read it); verify MASWE/MASTG IDs against the live guide.
+
+> **Read first — two cross-cutting caveats.**
+> - **FairPlay:** against a `cryptid=1` App Store binary, `otool`/`nm`/class-dump/Ghidra see ciphertext for `__TEXT`, so any "the binary calls IDFA / hits this tracker domain" conclusion drawn from symbols/strings is **invalid until decrypted** (see `masvs-ios-static.md` Tools). `Info.plist`, entitlements and `PrivacyInfo.xcprivacy` are *not* encrypted and remain readable.
+> - **Static reaches "declared vs. present", not "actually used at runtime".** Whether a protected-resource API or tracking SDK *fires* in a given flow is a **runtime** question (MASTG-TEST-0361/-0363, dynamic). Statically you flag the candidate (purpose string / entitlement / identifier symbol / tracker domain present) and mark it **Needs dynamic verification**; never claim observed runtime behavior you did not run.
+
+## MASVS control statements (anchors — verbatim, MASVS v2.0.0)
+- **MASVS-PRIVACY-1** — The app minimizes access to sensitive data and resources. *(over-permissioning, unjustified entitlements, third-party SDK data sharing, sensitive PII in network traffic)*
+- **MASVS-PRIVACY-2** — The app prevents identification of the user. *(persistent/cross-session identifiers, fingerprinting)*
+- **MASVS-PRIVACY-3** — The app is transparent about data collection and usage. *(privacy-manifest / data-collection declarations vs. reality)*
+- **MASVS-PRIVACY-4** — The app offers user control over their data. *(consent/opt-out, data deletion/export — largely runtime/policy on iOS)*
+
+Match each finding to the **statement**, not the group, and quote it. Note: the live MAS site lists the purpose-string/entitlement tests under "Profile P" navigation, but their MASWE (MASWE-0117, *Inadequate Permission Management*) maps to **MASVS-PRIVACY-1** by statement (minimize access) — anchor to PRIVACY-1, per SKILL.md "let the MASWE choose the group, the statement choose the number."
+
+## Pre-pass inputs (frame the group before checking)
+Read these first (techniques from `masvs-ios-static.md` pre-pass): `Info.plist` `NS*UsageDescription` purpose strings (`MASTG-TECH-0153`/`-0154`); the embedded entitlements / provisioning profile (`MASTG-TECH-0111`); `LSApplicationQueriesSchemes`; and every `PrivacyInfo.xcprivacy` in the main app **and** each bundle / PlugIn / Extension / Framework (retrieve `MASTG-TECH-0136`, analyze `MASTG-TECH-0137`).
+
+## Checks
+- **Purpose-string accuracy vs. reachable resource access** — for each protected resource the binary can reach (location, camera, microphone, contacts, photos, health, Bluetooth, etc.), confirm the matching `NS*UsageDescription` exists **and** meaningfully explains the use; flag missing, boilerplate ("required for app to work"), or copy-paste-mismatched strings, and any resource API reachable in code with **no** purpose string (App Store reject + privacy gap). → **MASVS-PRIVACY-1**, MASWE-0117, **MASTG-TEST-0360** (static; runtime counterpart `-0361`).
+- **Unjustified / excessive entitlements** — diff the signed entitlements against the app's user-visible functionality: flag privacy-relevant capabilities the features don't need — `keychain-access-groups`/`com.apple.security.application-groups` (shared storage), HealthKit/HomeKit, contacts/calendar, `com.apple.developer.associated-domains`, iCloud/CloudKit, background modes, `com.apple.developer.networking.*`. Excess capability = excess data-access surface. → **MASVS-PRIVACY-1**, MASWE-0117, **MASTG-TEST-0362** (static; runtime counterpart `-0363`).
+- **Permission minimization (over-permissioning)** — the union of declared purpose strings + entitlements describes the app's *requested* sensitive-data footprint; flag the footprint as broader than the stated purpose (the classic "flashlight asks for contacts" pattern). Same control/weakness as above; report at the **footprint** level distinct from a single inaccurate string. → **MASVS-PRIVACY-1**, MASWE-0117, MASTG-TEST-0360/`-0362`.
+- **Persistent identifiers / user tracking** — grep the (decrypted) binary for `ASIdentifierManager`/`advertisingIdentifier` (IDFA), `identifierForVendor` (IDFV) used as a cross-session/cross-app key, device-fingerprinting inputs (`UIDevice`, `sysctl hw.*`, `DeviceCheck`/`appAttest` misused as a stable id), and Keychain-persisted custom GUIDs that survive reinstall to re-identify users. Also check App Tracking Transparency gating: `requestTrackingAuthorization` + `NSUserTrackingUsageDescription` should precede any IDFA use. → **MASVS-PRIVACY-2**, MASWE-0110, MASTG iOS identifier-tracking test **(ID to confirm — no confirmed atomic iOS test; cite control + "Use of Unique Identifiers for User Tracking")**; technique `MASTG-TECH-0070` (binary symbol review).
+- **Privacy-manifest / required-reason-API declarations vs. reality** — parse every `PrivacyInfo.xcprivacy`: `NSPrivacyAccessedAPITypes` + `...CategoryReasons` must cover the required-reason APIs the binary actually links (UserDefaults, file-timestamp, system-boot-time, disk-space, active-keyboard); `NSPrivacyCollectedDataTypes` must match what the app collects; missing/under-declared manifest while the symbol is present = transparency gap. → **MASVS-PRIVACY-3**, MASWE-0112, manifest static-analysis technique `MASTG-TECH-0136`/`-0137` (no confirmed atomic test for the symbol-vs-declaration diff → **ID to confirm**, cite control + "Inadequate Data Collection Declarations").
+- **Undeclared tracking domains** — enumerate hardcoded and code-referenced hosts (ad networks, analytics, profiling SDKs) and compare against `NSPrivacyTrackingDomains` in the privacy manifest; any tracking host not declared (or `NSPrivacyTracking` false while tracking endpoints exist) is the finding. Sensitive PII sent to such endpoints also implicates the network angle. → **MASVS-PRIVACY-1**, MASWE-0108, **MASTG-TEST-0281** (static).
+- **Installed-app fingerprinting via scheme probing** — `LSApplicationQueriesSchemes` declaring many third-party schemes + `canOpenURL(_:)` calls used to enumerate which other apps are installed (a fingerprinting/profiling signal). → **MASVS-PRIVACY-2**, MASWE-0110 (relates PLATFORM-1; see `masvs-ios-static.md` PLATFORM), test **ID to confirm**; technique `MASTG-TECH-0153`/`-0154` (Info.plist).
+- **Anonymization / pseudonymization of PII before storage or transmission** *(P-profile, low yield statically)* — raw direct identifiers (email, phone, precise GPS) persisted or sent where a pseudonym would suffice. Rarely statically decidable (design/policy judgment) — flag as a candidate only with concrete evidence, otherwise note as observation. → **MASVS-PRIVACY-1/-3**, MASWE-0109, no atomic test → **ID to confirm**.
+
+> User-control items (consent capture, opt-out, data deletion/export — **MASVS-PRIVACY-4**, MASWE-0113/-0115) and runtime data-collection behavior are predominantly **dynamic/UX**; statically you can only note presence/absence of the mechanism. Defer confirmation to dynamic (see `references/ios/dynamic.md`).
+
+## Classic false positives
+Consult before promoting a candidate. Each below is **usually NOT a finding** absent extra evidence:
+
+| Candidate | Why it's usually a false positive | When it *is* real |
+|---|---|---|
+| Strings/symbols "show IDFA / tracker domain / required-reason API" | If the binary is **FairPlay-encrypted** (`cryptid=1`), tool output is ciphertext — your read is invalid, not a finding | binary is decrypted (`cryptid=0`) and the identifier/domain/API is genuinely linked and reachable |
+| Purpose string present but "generic" | A reasonable, accurate short string is acceptable; App Review already rejects empty ones | string is missing for a reached resource, or is copy-pasted/mismatched/misleading vs. actual use |
+| Many entitlements / `NS*UsageDescription` keys | Each can be legitimately justified by a real feature; breadth alone isn't over-collection | a capability/purpose has **no** corresponding user-visible feature (unjustified exposure) |
+| `LSApplicationQueriesSchemes` lists several schemes | A few schemes for genuine "open in <app>" integrations is normal | a large probe list clearly used to fingerprint installed apps, not to open them |
+| `identifierForVendor` (IDFV) used | Per-vendor, resets when all that vendor's apps are removed — fine for first-party analytics | used to build a cross-app/persistent profile, or paired with Keychain to survive reinstall (re-identification) |
+| `PrivacyInfo.xcprivacy` "missing some entries" | A framework's own manifest may cover its APIs; aggregate across all bundles before judging | the app links a required-reason API or tracking domain that **no** manifest in the bundle declares |
+| Third-party SDK references advertising/analytics | SDK may be present but the data-sharing path unreached, or ATT-gated and consented | tracking fires/PII leaves without consent, or its tracking domain is undeclared (MASTG-TEST-0281) |
+
+When you dismiss a candidate, record it (and the reason) in the report's "candidates not promoted" appendix.
