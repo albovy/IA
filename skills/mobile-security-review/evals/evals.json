@@ -1,0 +1,32 @@
+{
+  "skill_name": "mobile-security-review",
+  "notes": "v1 qualitative test on deliberately-vulnerable sample APKs. Tooling: this environment has no JVM, so runs use androguard 4.1.4 in a venv at mobile-security-review-workspace/venv (python: venv/Scripts/python.exe). OVAA was source-only (no prebuilt APK; building needs full Android SDK/Gradle), so test case 3 substitutes Allsafe, which exercises the same MASVS-PLATFORM surface (exported components, deep links, WebViews, providers) and more. Prompts are phrased the way a real user would speak, including one with no MASVS/OWASP mention (triggering test).",
+  "samples": {
+    "diva-beta.apk": "sha256 5CEFC51FCE9BD760B92AB2340477F4DDA84B4AE0C5D04A8C9493E4FE34FAB7C5",
+    "InsecureBankv2.apk": "sha256 B18AF2A0E44D7634BBCDF93664D9C78A2695E050393FCFBB5E8B91F902D194A4 (pkg com.android.insecurebankv2)",
+    "allsafe.apk": "sha256 D6792D6634A033F048F935F1269179D3C27B859C4C34B1E9E5B008A88375EFD9 (pkg infosecadventures.allsafe)"
+  },
+  "evals": [
+    {
+      "id": 1,
+      "name": "diva-bare-trigger-L1",
+      "prompt": "Can you do a security review of this Android app? I've only got the APK (diva-beta.apk). Let me know what you find and how bad it is.",
+      "expected_output": "Skill triggers despite no mention of MASVS/OWASP. Triage: SHA-256 + signing + build type recorded. Infers L1 profile and states why. Static findings concentrated in STORAGE (insecure SharedPreferences/SQLite, files), CRYPTO (weak/hardcoded), CODE (hardcoded secrets), each traced MASVS->MASWE->MASTG with severity reflecting THIS app. Static-only runtime claims marked 'Needs dynamic verification'. Anti-FP gate applied (public values not flagged as secrets). Markdown report from report-template.md.",
+      "files": ["diva-beta.apk"]
+    },
+    {
+      "id": 2,
+      "name": "insecurebank-explicit-masvs-L2-static-only",
+      "prompt": "Audit InsecureBankv2.apk against OWASP MASVS. It's a banking app so treat it as high-risk, and I don't have a device set up so static only please.",
+      "expected_output": "Selects L2 profile (high-risk) and justifies it. Honors 'static only, no device': every runtime-dependent item is confidence 'Needs dynamic verification' and NO dynamic results are fabricated. Strong NETWORK coverage (cleartext config, missing pinning, weak TLS/trust), AUTH (token/session handling client-side), STORAGE. MASVS->MASWE->MASTG traceability throughout, MASVS coverage table shows assessed-vs-pass-vs-na.",
+      "files": ["InsecureBankv2.apk"]
+    },
+    {
+      "id": 3,
+      "name": "allsafe-platform-exported-focus",
+      "prompt": "Here's allsafe.apk. I'm mostly worried about whether other apps on the phone can attack it - exported components, deep links, that kind of thing. Can you check?",
+      "expected_output": "Focuses on MASVS-PLATFORM: enumerates exported components, checks permission protectionLevel AND the actual handler behavior (reachable/exploitable gate), content providers (path traversal/SQLi/grantUriPermissions), deep links/App Links (autoVerify), WebView exposure, mutable PendingIntents. Does NOT flag signature-permission-protected or inert exports (classic FP table applied). Findings traced MASVS-PLATFORM -> MASWE -> MASTG.",
+      "files": ["allsafe.apk"]
+    }
+  ]
+}

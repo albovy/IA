@@ -1,0 +1,24 @@
+{
+  "name": "ia",
+  "id": "ia",
+  "owner": {
+    "name": "albovy"
+  },
+  "metadata": {
+    "description": "albovy's Claude Code skills — security tooling and more",
+    "version": "1.0.0"
+  },
+  "plugins": [
+    {
+      "name": "ia-skills",
+      "source": "./",
+      "description": "Mobile application security review (OWASP MASVS / MASWE / MASTG, Android + iOS, static & dynamic). More skills to come.",
+      "version": "1.0.0",
+      "author": {
+        "name": "albovy"
+      },
+      "keywords": ["security", "mobile", "owasp", "masvs", "maswe", "mastg", "android", "ios", "pentest", "skills"],
+      "category": "security"
+    }
+  ]
+}

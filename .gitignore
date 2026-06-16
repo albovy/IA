@@ -1,0 +1,16 @@
+# OS / editor junk
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/
+
+# Python / build artifacts (in case skills bundle scratch later)
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Local skill-build workspaces / packaged artifacts
+*-workspace/
+*.skill
