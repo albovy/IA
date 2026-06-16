@@ -125,8 +125,7 @@ Anchor each finding to the exact control in SKILL.md (read it); verify MASWE/MAS
 - **WebView remote debugging.** `WebView.setWebContentsDebuggingEnabled(true)` unconditional / not gated on
   `ApplicationInfo.FLAG_DEBUGGABLE` exposes the WebView to `chrome://inspect`. **Independent of the manifest
   `debuggable` flag** — check it even on a non-debuggable build. **Anchor `MASVS-RESILIENCE-4`** · MASWE-0074
-  (Web Content Debugging Enabled) · **MASTG-TEST-0227** "Debugging Enabled for WebViews". *(The monolith
-  anchored this to MASWE-0067; the live catalog maps MASTG-TEST-0227 to MASWE-0074 — corrected.)*
+  (Web Content Debugging Enabled) · **MASTG-TEST-0227** "Debugging Enabled for WebViews" (maps to MASWE-0074).
 - **Anti-debugging present?** `Debug.isDebuggerConnected()` / `Debug.waitingForDebugger()`, native `ptrace`
   self-attach (`ptrace(PTRACE_TRACEME)`), TracerPid checks in `/proc/self/status`, timing/JDWP checks.
   Absent under R = finding. **Anchor `MASVS-RESILIENCE-4`** · MASWE-0101 (Debugger Detection Not

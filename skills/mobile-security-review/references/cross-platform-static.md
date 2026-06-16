@@ -34,7 +34,7 @@ Unzip the package (`.apk`/`.aab` is a ZIP; `.ipa` is a ZIP whose payload is `Pay
 | **Unity** | IL2CPP: `assets/bin/Data/Managed/Metadata/global-metadata.dat` **and** `lib/<abi>/libil2cpp.so`; Mono: `assets/bin/Data/Managed/*.dll` + `libmono*.so`; `libunity.so` either way | `Data/il2cpp_metadata/global-metadata.dat` + `UnityFramework`/`libil2cpp`; or `Data/Managed/*.dll` (Mono) |
 | **Kotlin Multiplatform** | a shared module as Kotlin/Native `.so` (`kfun:`/`kclass:` symbols in `rabin2 -z`/`nm`) **or** as ordinary JVM bytecode in `classes*.dex` (jadx works) | shared `.framework` (Kotlin/Native, `kfun:` symbols) embedded in `Frameworks/` |
 
-If none match, treat the app as native and route to `masvs-android-static.md` / `masvs-ios-static.md`. If two match (e.g. a Cordova plugin inside a mostly-native app), analyse both layers. Record the detected framework + the marker that proved it in the report — it justifies the analysis path you took.
+If none match, treat the app as native and route to `android-overview.md` / `ios-overview.md` (and their per-MASVS-group files). If two match (e.g. a Cordova plugin inside a mostly-native app), analyse both layers. Record the detected framework + the marker that proved it in the report — it justifies the analysis path you took.
 
 - *(detection itself has no dedicated atomic test — cite the relevant **MASVS** control + "framework fingerprinting (ID to confirm)"; the offensive technique is `MASTG-TECH-0007` for the package and `MASTG-TOOL-0009` (APKiD) for the compiler/packer fingerprint.)*
 

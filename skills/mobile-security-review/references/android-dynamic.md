@@ -1,7 +1,7 @@
 # Android — Dynamic Analysis (confirming the static flags)
 
 **Purpose.** Dynamic analysis here is not a fresh hunt — its job is to **confirm** what the static pass
-(`masvs-android-static.md`) flagged and **fuse** it with static, raising confidence. A static suspicion at
+(`android-overview.md`) flagged and **fuse** it with static, raising confidence. A static suspicion at
 `Needs dynamic verification` becomes `Confirmed` only when an actual run on a device proves it. Static findings
 that dynamic *disproves* (e.g. pinning that actually holds) get downgraded or dropped.
 
@@ -40,7 +40,7 @@ Techniques: `MASTG-TECH-0049` (Dynamic Analysis, entry), `-0011`/`-0120` (interc
 
 ## What to confirm (static flag → runtime check)
 
-| Static flag (from `masvs-android-static.md`) | Dynamic confirmation | Test |
+| Static flag (from `android-overview.md`) | Dynamic confirmation | Test |
 |---|---|---|
 | **Cleartext** permitted (manifest/NSC) | MITM proxy: observe a real `http://` request on the wire | `MASTG-TEST-0019` (data encryption on the network) |
 | **Pinning** present/absent | Proxy with trusted CA: if HTTPS is interceptable → pinning absent/ineffective; if not, attempt authorized bypass (`objection`/Frida) to confirm it's *pinning*, not the CA-trust default | `MASTG-TEST-0244` (missing pinning in traffic; atomic) — legacy `-0022` |

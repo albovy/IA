@@ -1,6 +1,6 @@
 {
   "skill_name": "mobile-security-review",
-  "notes": "v1 qualitative test on deliberately-vulnerable sample APKs. Tooling: this environment has no JVM, so runs use androguard 4.1.4 in a venv at mobile-security-review-workspace/venv (python: venv/Scripts/python.exe). OVAA was source-only (no prebuilt APK; building needs full Android SDK/Gradle), so test case 3 substitutes Allsafe, which exercises the same MASVS-PLATFORM surface (exported components, deep links, WebViews, providers) and more. Prompts are phrased the way a real user would speak, including one with no MASVS/OWASP mention (triggering test).",
+  "notes": "Qualitative tests on deliberately-vulnerable sample APKs. Tooling: no JVM here, so runs use androguard 4.1.4 in a venv at mobile-security-review-workspace/venv (python: venv/Scripts/python.exe). Cases 1-6 are runnable with the three on-hand Android APKs (diva-beta.apk, InsecureBankv2.apk, allsafe.apk). KNOWN UNTESTED GAPS (need artifacts/tooling this environment lacks; documented, not silent): (a) iOS — no .ipa/Mach-O sample and no iOS static tooling (LIEF/plistlib/class-dump); acquire e.g. DVIA-v2 or iGoat .ipa + add LIEF/biplist before adding an iOS case; (b) cross-platform — no React Native/Flutter sample APK to force the framework-fingerprint branch; (c) dynamic-confirmation positive path (static suspicion confirmed on a prepared device then merged to one finding) — no device/emulator/Frida lane here. Trigger-eval set (mobile-security-review-workspace/trigger-evals.json) DOES cover iOS, Mach-O, mode-2 and Spanish prompts for the triggering dimension.",
   "samples": {
     "diva-beta.apk": "sha256 5CEFC51FCE9BD760B92AB2340477F4DDA84B4AE0C5D04A8C9493E4FE34FAB7C5",
     "InsecureBankv2.apk": "sha256 B18AF2A0E44D7634BBCDF93664D9C78A2695E050393FCFBB5E8B91F902D194A4 (pkg com.android.insecurebankv2)",
@@ -9,24 +9,51 @@
   "evals": [
     {
       "id": 1,
-      "name": "diva-bare-trigger-L1",
+      "name": "diva-bare-trigger-autonomous",
+      "mode": "autonomous review",
       "prompt": "Can you do a security review of this Android app? I've only got the APK (diva-beta.apk). Let me know what you find and how bad it is.",
-      "expected_output": "Skill triggers despite no mention of MASVS/OWASP. Triage: SHA-256 + signing + build type recorded. Infers L1 profile and states why. Static findings concentrated in STORAGE (insecure SharedPreferences/SQLite, files), CRYPTO (weak/hardcoded), CODE (hardcoded secrets), each traced MASVS->MASWE->MASTG with severity reflecting THIS app. Static-only runtime claims marked 'Needs dynamic verification'. Anti-FP gate applied (public values not flagged as secrets). Markdown report from report-template.md.",
+      "expected_output": "Skill triggers despite no mention of MASVS/OWASP. Mode 1 (autonomous review): triage records SHA-256 + signing + build type; selects and JUSTIFIES a profile; static findings concentrated in STORAGE (insecure SharedPreferences/SQLite/files), CRYPTO (weak/hardcoded), and hardcoded secrets anchored to AUTH-1/CRYPTO (NOT CODE), each traced MASVS->MASWE->MASTG with severity reflecting THIS app. Static-only runtime claims marked 'Needs dynamic verification'. Anti-FP gate applied (public values not flagged as secrets). Markdown report from report-template.md.",
       "files": ["diva-beta.apk"]
     },
     {
       "id": 2,
       "name": "insecurebank-explicit-masvs-L2-static-only",
+      "mode": "autonomous review",
       "prompt": "Audit InsecureBankv2.apk against OWASP MASVS. It's a banking app so treat it as high-risk, and I don't have a device set up so static only please.",
-      "expected_output": "Selects L2 profile (high-risk) and justifies it. Honors 'static only, no device': every runtime-dependent item is confidence 'Needs dynamic verification' and NO dynamic results are fabricated. Strong NETWORK coverage (cleartext config, missing pinning, weak TLS/trust), AUTH (token/session handling client-side), STORAGE. MASVS->MASWE->MASTG traceability throughout, MASVS coverage table shows assessed-vs-pass-vs-na.",
+      "expected_output": "Selects L2 profile (high-risk) and justifies it. Honors 'static only, no device': every runtime-dependent item is confidence 'Needs dynamic verification' and NO dynamic results are fabricated. Strong NETWORK coverage (cleartext config, missing pinning, weak TLS/trust), AUTH (token/session handling client-side), STORAGE. MASVS->MASWE->MASTG traceability throughout; MASVS coverage table shows assessed-vs-pass-vs-na.",
       "files": ["InsecureBankv2.apk"]
     },
     {
       "id": 3,
       "name": "allsafe-platform-exported-focus",
+      "mode": "autonomous review (PLATFORM-focused)",
       "prompt": "Here's allsafe.apk. I'm mostly worried about whether other apps on the phone can attack it - exported components, deep links, that kind of thing. Can you check?",
-      "expected_output": "Focuses on MASVS-PLATFORM: enumerates exported components, checks permission protectionLevel AND the actual handler behavior (reachable/exploitable gate), content providers (path traversal/SQLi/grantUriPermissions), deep links/App Links (autoVerify), WebView exposure, mutable PendingIntents. Does NOT flag signature-permission-protected or inert exports (classic FP table applied). Findings traced MASVS-PLATFORM -> MASWE -> MASTG.",
+      "expected_output": "Focuses on MASVS-PLATFORM by METHOD (does not assume specific findings exist): enumerates exported components and, for each, checks permission protectionLevel AND the actual handler reachability (the anti-FP gate) before promoting; assesses ContentProviders (path traversal/SQLi/grantUriPermissions), deep links/App Links (autoVerify), WebView exposure, and PendingIntent mutability. Reports a finding only where the handler is actually reachable/exploitable; does NOT flag signature-permission-protected or inert exports (classic FP table). Findings traced MASVS-PLATFORM->MASWE->MASTG.",
       "files": ["allsafe.apk"]
+    },
+    {
+      "id": 4,
+      "name": "allsafe-targeted-assist-mode2-pinning",
+      "mode": "targeted assist (mode 2 / offensive)",
+      "prompt": "Don't write me a full report - just help me find where cert pinning is implemented in allsafe.apk and show me how I'd test or bypass it on a device I control.",
+      "expected_output": "Recognizes MODE 2 (targeted assist): does NOT run the full workflow or emit a report-template report. Goes straight to references/android/network.md. Locates the ACTUAL pinning implementation in decompiled code / network_security_config and names the class/file. Gives a concrete authorized dynamic step (objection 'android sslpinning disable' or a Frida hook snippet) labeled as a step to RUN, never fabricated results. Still applies the anti-FP gate + static/dynamic honesty (no claimed runtime outcome without a device). Offers to fold the result into a finding/report if wanted.",
+      "files": ["allsafe.apk"]
+    },
+    {
+      "id": 5,
+      "name": "allsafe-resilience-R-profile",
+      "mode": "autonomous review (R profile)",
+      "prompt": "This is an anti-fraud app that's supposed to resist tampering and running on rooted or hooked devices - review allsafe.apk for its reverse-engineering and anti-tampering resilience.",
+      "expected_output": "Selects the R profile (augmenting L1/L2) and justifies it. Assesses MASVS-RESILIENCE-1..4: root/emulator detection, anti-tamper/signature self-check, obfuscation, anti-debug/anti-hook, and the debuggable flag. Anchors these to MASVS-RESILIENCE (NOT MASVS-CODE), each traced ->MASWE->MASTG, using 'ID to confirm' where no atomic test exists (e.g. the debuggable flag). Treats single-point checks as bypassable and marks runtime-bypass claims 'Needs dynamic verification'.",
+      "files": ["allsafe.apk"]
+    },
+    {
+      "id": 6,
+      "name": "diva-antifp-dismissed-candidates",
+      "mode": "autonomous review (anti-FP stress)",
+      "prompt": "Run a security review of diva-beta.apk, but I keep getting noise from scanners - be strict about false positives and tell me explicitly what you looked at and decided was NOT a real issue and why.",
+      "expected_output": "Promotes only candidates passing all three gate prongs (real evidence / reachable-here / honest confidence). Explicitly DEMOTES at least one tempting candidate (e.g. a public/test constant matched as a 'secret', a CVE in a bundled-but-unreachable lib, or a debug-only-flag in a debug build) and records each dismissal WITH REASON in the report's 'candidates not promoted' appendix. No grep/MobSF hit is reported as a finding without code-level proof.",
+      "files": ["diva-beta.apk"]
     }
   ]
 }

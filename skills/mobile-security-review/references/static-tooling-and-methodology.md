@@ -51,9 +51,9 @@ Known-vulnerable dependencies are the highest-yield finding *class*, but a CVE i
 A CVE (or any candidate sink) only stands if a call path reaches it in *this* build from a real entry point. Prove it with a call-graph/cross-reference pass; mark unreachable candidates **dismissed** with the xref evidence (defensible in the appendix).
 
 - **Android — androguard XREFs:** `AnalyzeAPK("app.apk")` then walk `MethodAnalysis.get_xref_from()` / `get_xref_to()` (and `ClassAnalysis` xrefs) from manifest entry points — exported components' `onCreate`/`onReceive`/`onBind`, `Application.onCreate`, deep-link/`Linking` handlers — toward the vulnerable API or sink. Or in **jadx** use **"Find Usage"** from the same entry points. Entry points come from the manifest (technique **MASTG-TECH-0117**, Obtaining Information from the AndroidManifest).
-  → reachability technique **MASTG-TECH-0020** (Retrieving Cross References, Android) — *(corrects the planning placeholder TECH-0014; TECH-0020 is the verified id)*; tools **MASTG-TOOL-0018** (jadx), androguard.
+  → reachability technique **MASTG-TECH-0020** (Retrieving Cross References, Android); tools **MASTG-TOOL-0018** (jadx), androguard. *(MASTG-TECH-0014 "Static Analysis on Android" is the general static-analysis umbrella; -0020 is specifically cross-references/reachability.)*
 - **iOS — class-dump + Ghidra/radare2:** recover the class/method surface (class-dump / dsdump), then trace xrefs in **Ghidra** ("Show References to") or **radare2/rabin2** (`axt <addr>` = analyze xrefs-to) from reachable entries — custom URL-scheme handlers, Universal-Link / `continueUserActivity`, app-delegate launch — to the sink. Requires a **decrypted** binary (FairPlay `cryptid=0`).
-  → reachability technique **MASTG-TECH-0072** (Retrieving Cross References, iOS) — *(corrects the planning placeholders TECH-0070/-0075/-0076; TECH-0072 is the verified id)*.
+  → reachability technique **MASTG-TECH-0072** (Retrieving Cross References, iOS). *(TECH-0070/-0075/-0076 are binary-extraction/review techniques, not the xref/reachability one.)*
 
 > **Honesty:** static reachability via xref is strong evidence the path *exists*, but data-flow feasibility (attacker actually controls the input that reaches the sink) often needs dynamic confirmation — set confidence accordingly (`Likely` vs `Needs dynamic verification`), never `Confirmed` on xref alone.
 
@@ -90,11 +90,11 @@ Classification is **mandatory** and sets both the verdict and the MASVS control:
 
 Cloud-backend config is **100% statically discoverable**, and the open-rules check is a trivial *unauthenticated* call you flag for testing. The config itself is not the secret (see §3b); the risk is an **open backend exposing app data without authentication** — which is leakage of sensitive data, so it anchors to **MASVS-STORAGE-2**, *not* crypto.
 
-> **Anchor discrepancy flagged:** gap data tagged Firebase as **MASWE-0010** — that MASWE is in **MASVS-CRYPTO** (KDF/crypto config) and is the wrong home by statement. Exposure of unauthenticated backend data is **MASVS-STORAGE-2** ("prevents leakage of sensitive data"); the precise MASWE under STORAGE-2 for open cloud backends is **(MASWE id to confirm)** — anchor by the control statement and note the discrepancy in the finding.
+> **Anchor note:** open/unauthenticated backend data is *leakage* → anchor **MASVS-STORAGE-2** ("prevents leakage of sensitive data"), **not** MASVS-CRYPTO (MASWE-0010 is a CRYPTO/KDF weakness — the wrong home for an open backend). The precise MASWE under STORAGE-2 for open cloud backends is **(MASWE id to confirm)** — anchor by the control statement.
 
 **Static discovery:**
 - **Android:** parse `res/values/strings.xml` and **`google-services.json`** for `firebase_database_url`/`project_id`/`storage_bucket`/`google_api_key`; grep code for `*.firebaseio.com`, `*.firebasedatabase.app`, `firestore.googleapis.com`, `*.appspot.com` / `firebasestorage.googleapis.com`. Discovery technique **MASTG-TECH-0117** (manifest/resources) + **MASTG-TECH-0007** (Exploring the App Package).
-- **iOS:** parse **`GoogleService-Info.plist`** for the same keys; grep the (decrypted) binary/strings for the same URLs. Discovery via **MASTG-TECH-0058** (Exploring the App Package / Info.plist).
+- **iOS:** parse **`GoogleService-Info.plist`** for the same keys; grep the (decrypted) binary/strings for the same URLs. Discovery via **MASTG-TECH-0058** (Exploring the App Package) + **MASTG-TECH-0153**/`-0154` (Info.plist).
 - **Other clouds:** AWS Amplify `amplifyconfiguration.json` / `awsconfiguration.json` (Cognito identity/user-pool ids), Azure connection strings, Supabase URL + `anon` key, Sentry/Mapbox DSNs.
 
 **Open-rules probe (flag for the dynamic phase — do not fabricate the result):**

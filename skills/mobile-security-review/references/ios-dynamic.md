@@ -1,6 +1,6 @@
 # iOS — Dynamic Analysis (confirming the static flags)
 
-**Purpose.** As on Android, dynamic analysis here **confirms** what the static pass (`masvs-ios-static.md`)
+**Purpose.** As on Android, dynamic analysis here **confirms** what the static pass (`ios-overview.md`)
 flagged and **fuses** it with static to raise confidence — it is not a fresh hunt. On iOS it has a second job:
 a static review of a **FairPlay-encrypted** App Store binary is fundamentally limited, so dynamic
 (instrumented) analysis is often the only way to read real behavior.
@@ -39,7 +39,7 @@ a static review of a **FairPlay-encrypted** App Store binary is fundamentally li
 
 ## What to confirm (static flag → runtime check)
 
-| Static flag (from `masvs-ios-static.md`) | Dynamic confirmation | Test/technique |
+| Static flag (from `ios-overview.md`) | Dynamic confirmation | Test/technique |
 |---|---|---|
 | **ATS / cleartext** exception | MITM proxy: observe a real cleartext request | NETWORK runtime / `MASTG-TEST-0322` (static) |
 | **Pinning** present/absent | Trusted-CA proxy; if interceptable → no effective pinning; else attempt authorized bypass (`objection ios sslpinning disable`, SSL Kill Switch 2, Frida CodeShare) to confirm it's pinning | `MASTG-TECH-0064` |

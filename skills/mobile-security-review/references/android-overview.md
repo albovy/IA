@@ -55,7 +55,7 @@ here (later groups reuse it). (Technique: `MASTG-TECH-0117` Obtaining Informatio
 - **`android:debuggable="true"`** on a release build → serious (JDWP attach). Expected in a *debug* build → not
   a finding. Confirm build type. Anchor `MASVS-RESILIENCE-4` (`MASWE-0067`), not CODE; no clean atomic test → cite control + "ID to confirm".
 - **`android:allowBackup="true"`** → possible `adb backup`/cloud exfiltration. Anchor `MASVS-STORAGE-2` (`MASWE-0003`); also check `fullBackupContent` / `dataExtractionRules`. → `android/storage.md`.
-- **`android:usesCleartextTraffic`** + **`android:networkSecurityConfig`** → analyze in `android/network.md` (NSC is authoritative on modern targets; the attribute is deprecated for targetSdk ≥ 38).
+- **`android:usesCleartextTraffic`** + **`android:networkSecurityConfig`** → analyze in `android/network.md` (NSC is authoritative on modern targets; the attribute is deprecated for targetSdk ≥ 28 (Android 9; cleartext off by default from there)).
 - **`minSdkVersion` / `targetSdkVersion`** — low values keep weak old-OS defaults / opt out of new hardening. Anchor `MASVS-CODE-1`.
 - **Exported components** — every `<activity>`/`<service>`/`<receiver>`/`<provider>` reachable by other apps
   (`exported="true"`, or pre-31 implicit via `<intent-filter>`); record each one's `permission`/`protectionLevel`. Drives `android/platform.md`.
