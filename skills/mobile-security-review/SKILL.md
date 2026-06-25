@@ -40,7 +40,7 @@ out-of-scope items. Dynamic testing in particular touches live systems — never
 
 Read the request and choose a mode; both honor Rule Zero and the contract.
 
-**1. Autonomous review** — e.g. *"validá este APK", "is this app safe?", "audit this .ipa", "full MASVS
+**1. Autonomous review** — e.g. *"validate this APK", "is this app safe?", "audit this .ipa", "full MASVS
 review of this build"*. Run the full **Workflow** below end-to-end on your own and deliver a verdict +
 report. This is the default when the user hands over an artifact and wants an overall judgment.
 
