@@ -4,7 +4,7 @@ Scope: static review of an iOS artifact (`.ipa` / `.app` / Mach-O) for platform 
 
 Anchor each finding to the exact control in SKILL.md (read it); verify MASWE/MASTG IDs against the live guide.
 
-> Everything here is a **candidate generator** — promote to a finding only after the anti-false-positive gate in `SKILL.md`. **FairPlay caveat:** if the binary is encrypted (`cryptid=1`), `otool`/`nm`/`class-dump`/Ghidra read **ciphertext** for `__TEXT` — strings, symbols, deserialization sinks, hardening flags are all **invalid until decrypted** (see `ios-overview.md` Tools). Compiler-hardening flags (PIE/canary/ARC) are read from the Mach-O load commands/`__TEXT` and are also unreliable on an encrypted binary — decrypt first.
+> Everything here is a **candidate generator** — promote to a finding only after the anti-false-positive gate in `SKILL.md`. **FairPlay caveat:** if the binary is encrypted (`cryptid=1`), `otool`/`nm`/`class-dump`/Ghidra read **ciphertext** for `__TEXT` — strings, symbols, deserialization sinks, hardening flags are all **invalid until decrypted** (see `references/ios-overview.md` Tools). Compiler-hardening flags (PIE/canary/ARC) are read from the Mach-O load commands/`__TEXT` and are also unreliable on an encrypted binary — decrypt first.
 
 ## Group MASVS controls (verbatim, MASVS v2.0.0)
 - **MASVS-CODE-1** — The app requires an up-to-date platform version.

@@ -49,8 +49,9 @@ to *confirm*; this file covers two things: (1) getting a usable, instrumented, i
 - **MASTG-TECH-0032** *"Execution Tracing"* — `frida-trace`/jdb/strace observe a method's inputs/outputs (e.g. log
   every `Cipher.init` IV). For native `.so` routines use **MASTG-TECH-0034** *"Native Code Tracing"*.
 - **MASTG-TECH-0043** *"Method Hooking"* (Android) — *replace* a method's behavior (e.g. neuter a root check).
-- (`MASTG-TECH-0033` *"Method Tracing"* exists, but per `android-dynamic.md` `frida-trace`-style method tracing
-  is filed under Execution Tracing `-0032` / Native Code Tracing `-0034` — cite those, not `-0033`.)
+- (`frida-trace`-style method tracing is filed under Execution Tracing `-0032` / Native Code Tracing `-0034` —
+  cite those. **`MASTG-TECH-0033` is not a hooking/tracing id to cite here** (its title is neither "Method
+  Hooking" nor "Method Tracing") — don't use it for either, on Android or iOS.)
 
 ## 3. Interception proxy + CA (the part people get wrong)
 - Run **Burp** (`MASTG-TOOL-0077`), **OWASP ZAP** (`MASTG-TOOL-0079`), or **mitmproxy** on the host; point the

@@ -255,6 +255,7 @@ explicitly when a conclusion required decrypting/instrumenting (otherwise the st
 | `MASTG-TECH-0088` | Emulation-based Analysis (covers iOS Simulator, Corellium, Unicorn) |
 | `MASTG-TECH-0090` | Injecting Frida Gadget into an IPA Automatically |
 | `MASTG-TECH-0094` | Getting Loaded Classes and Methods dynamically |
+| `MASTG-TECH-0095` | Method Hooking (iOS) |
 | `MASTG-TECH-0096` | Process Exploration |
 | `MASTG-TECH-0097` | Runtime Reverse Engineering |
 | `MASTG-TECH-0134` | Monitoring the Pasteboard (iOS) |
